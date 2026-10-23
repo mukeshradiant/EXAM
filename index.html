@@ -1642,6 +1642,12 @@ Class 5 | Computer | Chapter 1 - Computer Basics | Which key deletes characters 
             const corr = row["CorrectIndex"];
 
             if (cls && sub && chap && text && optA && optB) {
+              let rawCorrect = parseInt(corr);
+              let correctIdx = 0;
+              if (!isNaN(rawCorrect)) {
+                correctIdx = rawCorrect > 0 ? rawCorrect - 1 : rawCorrect;
+              }
+
               appState.questions.push({
                 id: 'q_' + Date.now() + Math.random(),
                 class: String(cls).trim(),
@@ -1649,7 +1655,7 @@ Class 5 | Computer | Chapter 1 - Computer Basics | Which key deletes characters 
                 chapter: String(chap).trim(),
                 text: String(text).trim(),
                 options: [String(optA), String(optB), String(optC || ''), String(optD || '')],
-                correct: parseInt(corr) || 0
+                correct: correctIdx
               });
               count++;
             }
