@@ -839,6 +839,9 @@
               <button onclick="exportResultListExcel()" class="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold rounded flex items-center gap-1 shadow-sm">
                 <i class="fa-solid fa-file-excel"></i> Download Excel List
               </button>
+              <button onclick="export8in1Pdf()" class="px-3 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold rounded flex items-center gap-1 shadow-sm">
+  <i class="fa-solid fa-file-pdf"></i> Download 8-in-1 PDF
+</button>
             </div>
           </div>
 
@@ -1972,10 +1975,25 @@ Class 5 | Computer | Chapter 1 - Computer Basics | Which key deletes characters 
       window.onblur = null;
 
       let score = 0;
+      let detailedAnswers = {};
+      const optLetters = ['A', 'B', 'C', 'D'];
+
       activeExam.questions.forEach((q, idx) => {
-        if (activeExam.answers[idx] === q.correct) {
+        const studentAnsIdx = activeExam.answers[idx];
+        const selectedLetter = studentAnsIdx !== undefined ? optLetters[studentAnsIdx] : '-';
+        const correctLetter = optLetters[q.correct];
+        const isCorrect = studentAnsIdx === q.correct;
+
+        if (isCorrect) {
           score++;
         }
+
+        detailedAnswers[`Q${idx + 1}`] = {
+          question: q.text,
+          selectedOptionLetter: selectedLetter,
+          correctOptionLetter: correctLetter,
+          isCorrect: isCorrect
+        };
       });
 
       const totalQ = activeExam.questions.length;
@@ -1992,7 +2010,8 @@ Class 5 | Computer | Chapter 1 - Computer Basics | Which key deletes characters 
         chapter: activeExam.chapter,
         score,
         totalQ,
-        percentage
+        percentage,
+        detailedAnswers
       };
 
       if (!appState.results) appState.results = [];
@@ -2191,6 +2210,120 @@ Class 5 | Computer | Chapter 1 - Computer Basics | Which key deletes characters 
         showAlert('System Reset', 'Entire evaluation system restored to initial state.', 'fa-skull-crossbones text-red-600');
         switchView('landing');
       }
+    }
+    function export8in1Pdf() {
+      const { jsPDF } = window.jspdf;
+      const doc = new jsPDF({
+        orientation: 'p',
+        unit: 'mm',
+        format: 'a4'
+      });
+
+      const results = appState.results || [];
+      if (results.length === 0) {
+        showAlert('No Data', 'PDF export karne ke liye koi result data maujood nahi hai.');
+        return;
+      }
+
+      const pageWidth = 210;
+      const pageHeight = 297;
+      const marginX = 4;
+      const marginY = 4;
+      
+      const colWidth = (pageWidth - (marginX * 3)) / 2;    // ~99mm
+      const rowHeight = (pageHeight - (marginY * 5)) / 4;  // ~70mm
+
+      const cols = 2;
+      const rows = 4;
+      const itemsPerPage = cols * rows; // Exactly 8 Students per A4 Page
+
+      results.forEach((r, idx) => {
+        const pageItemIdx = idx % itemsPerPage;
+
+        if (idx > 0 && pageItemIdx === 0) {
+          doc.addPage();
+        }
+
+        const c = pageItemIdx % cols;
+        const row = Math.floor(pageItemIdx / cols);
+
+        const x = marginX + c * (colWidth + marginX);
+        const y = marginY + row * (rowHeight + marginY);
+
+        // Outer Box Border
+        doc.setDrawColor(30, 41, 59);
+        doc.setLineWidth(0.35);
+        doc.rect(x, y, colWidth, rowHeight);
+
+        // Header Title Banner
+        doc.setFillColor(30, 41, 59);
+        doc.rect(x, y, colWidth, 5.5, 'F');
+        doc.setTextColor(255, 255, 255);
+        doc.setFontSize(7.5);
+        doc.setFont("helvetica", "bold");
+        doc.text("RADIANT PUBLIC SCHOOL - EVALUATION REPORT", x + colWidth / 2, y + 3.8, { align: 'center' });
+
+        // Student Info Details
+        doc.setFontSize(5.5);
+        doc.setTextColor(0, 0, 0);
+        
+        doc.text(`Name: ${r.studentName || '-'}`, x + 2, y + 9);
+        doc.text(`Class/Sec: ${r.class || ''} (${r.sec || ''})`, x + 38, y + 9);
+        doc.text(`Roll: ${r.roll || '-'}`, x + 75, y + 9);
+
+        doc.text(`Sub: ${r.subject || '-'}`, x + 2, y + 13.5);
+        doc.text(`Marks: ${r.score}/${r.totalQ}`, x + 38, y + 13.5);
+        doc.text(`Result: ${r.percentage}%`, x + 75, y + 13.5);
+
+        const qHeaders1 = [["Row", "Q1", "Q2", "Q3", "Q4", "Q5", "Q6", "Q7", "Q8", "Q9", "Q10"]];
+        const qHeaders2 = [["Row", "Q11", "Q12", "Q13", "Q14", "Q15", "Q16", "Q17", "Q18", "Q19", "Q20"]];
+
+        let row1Ticked = ["Ticked"];
+        let row1Correct = ["Ans"];
+        let row1Status = ["Stat"];
+
+        let row2Ticked = ["Ticked"];
+        let row2Correct = ["Ans"];
+        let row2Status = ["Stat"];
+
+        for (let i = 1; i <= 10; i++) {
+          const ans = r.detailedAnswers ? r.detailedAnswers[`Q${i}`] : null;
+          row1Ticked.push(ans ? ans.selectedOptionLetter : '-');
+          row1Correct.push(ans && ans.correctOptionLetter ? ans.correctOptionLetter : '-');
+          row1Status.push(ans ? (ans.isCorrect ? 'OK' : 'X') : '-');
+        }
+
+        for (let i = 11; i <= 20; i++) {
+          const ans = r.detailedAnswers ? r.detailedAnswers[`Q${i}`] : null;
+          row2Ticked.push(ans ? ans.selectedOptionLetter : '-');
+          row2Correct.push(ans && ans.correctOptionLetter ? ans.correctOptionLetter : '-');
+          row2Status.push(ans ? (ans.isCorrect ? 'OK' : 'X') : '-');
+        }
+
+        doc.autoTable({
+          startY: y + 15.5,
+          head: qHeaders1,
+          body: [row1Ticked, row1Correct, row1Status],
+          theme: 'grid',
+          margin: { left: x + 2 },
+          tableWidth: colWidth - 4,
+          styles: { fontSize: 5, cellPadding: 0.8, alignment: 'center' },
+          headStyles: { fillColor: [79, 70, 229], textColor: [255, 255, 255], fontStyle: 'bold' }
+        });
+
+        doc.autoTable({
+          startY: doc.lastAutoTable.finalY + 1.5,
+          head: qHeaders2,
+          body: [row2Ticked, row2Correct, row2Status],
+          theme: 'grid',
+          margin: { left: x + 2 },
+          tableWidth: colWidth - 4,
+          styles: { fontSize: 5, cellPadding: 0.8, alignment: 'center' },
+          headStyles: { fillColor: [79, 70, 229], textColor: [255, 255, 255], fontStyle: 'bold' }
+        });
+      });
+
+      doc.save("RPS_8in1_FullPage_Scorecards.pdf");
     }
   </script>
 </body>
